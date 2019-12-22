@@ -36,6 +36,7 @@ var firstKingInstructions = `Just say: blank, or whoever he first king is, is th
 var instructions = `${rotationInstructions} Then, proceed to tell me who is the first king. ${firstKingInstructions} Finally, continue with the match by saying how many points were earned per round.
 If you ever want to restart the match, say: Please restart my match. If you the attacker team just used a jack to defeat the previous king team, say Team Number just jacked the kings, with the only thing to change is Team Number replacing it with something like Team One.`;
 
+var launchBool = false;
 const LaunchRequestHandler = {
     canHandle(handlerInput) {
 
@@ -72,9 +73,28 @@ const LaunchRequestHandler = {
             if (typeof gaveAnOrder !== 'undefined') {
                 orderGiven = false; 
             } else {
-                orderGiven = gaveAnOrder;
+                orderGiven = true;
             }
 
+            if ((typeof firstTeamsScore !== 'undefined') && (typeof secondTeamsScore !== 'undefined') && (typeof orderOfDaCurrentKing !== 'undefined')) {
+                launchBool = true;
+                order = [globalFirstMemberOne, globalSecondMemberOne, globalFirstMemberTwo, globalSecondMemberTwo];
+                orderGiven = true;
+                teamOneCardOrder = firstTeamsScore;
+                teamTwoCardOrder = secondTeamsScore;
+                orderIndex = orderOfDaCurrentKing;
+                if ((orderIndex % 2) == 0) {
+                    currKingTeam = 1;
+                } else {
+                    currKingTeam = 2;
+                }
+                welcomeMessage = `Welcome back! I am automatically resuming your last match. The order is
+                ${order[0]}, followed by ${order[1]}, followed by ${order[2]}, and then finally followed by ${order[3]}.
+                Currently the team that is the current king is ${currKingTeam} and ${order[orderIndex]} is currently playing the king.
+                Team one is playing the ${cardOrder[teamOneCardOrder]} level and team two is playing the ${cardOrder[teamTwoCardOrder]} level.
+                Good luck to both teams in your current match.
+                `;
+            }
         }
 
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'LaunchRequest';
@@ -84,11 +104,9 @@ const LaunchRequestHandler = {
         if (firstGlobal && !global) {
             welcomeMessage = `Welcome back! We have already saved team one, with ${globalFirstMemberOne} and ${globalFirstMemberTwo} on the team.
             ${instructions}`;
-        } else if (global && (typeof firstTeamsScore !== 'undefined') && (typeof secondTeamsScore !== 'undefined') && (typeof orderOfDaCurrentKing !== 'undefined')) {
+        } else if (launchBool) {
             order = [globalFirstMemberOne, globalSecondMemberOne, globalFirstMemberTwo, globalSecondMemberTwo];
-            teamOneCardOrder = firstTeamsScore;
-            teamTwoCardOrder = secondTeamsScore;
-            orderIndex = orderOfDaCurrentKing;
+            orderGiven = true;
             if ((orderIndex % 2) == 0) {
                 currKingTeam = 1;
             } else {
@@ -100,8 +118,11 @@ const LaunchRequestHandler = {
             Team one is playing the ${cardOrder[teamOneCardOrder]} level and team two is playing the ${cardOrder[teamTwoCardOrder]} level.
             Good luck to both teams in your current match.
             `;
-
         } else {
+            if (typeof gaveAnOrder !== 'undefined') {
+                orderGiven = true;
+            }
+
             if (!orderGiven) {
                 welcomeMessage = `Welcome back! We already have a full match saved, with the players on team 1 being ${globalFirstMemberOne}, 
                 ${globalFirstMemberTwo}, and the players on team 2 being ${globalSecondMemberOne}, and ${globalSecondMemberTwo}.,
@@ -137,6 +158,8 @@ function nextRound(score) {
         skips -= 2;
         if (skips < 0) {
             skips = Math.abs(skips);
+            nextRoundBool = true;
+
             nextRoundMessage = `Congratulations current kings, you have managed to hold onto your throne. 
             You are going up ${Math.abs(skips)} levels.`;
             
@@ -171,6 +194,8 @@ function nextRound(score) {
             }
 
         } else if (skips == 0) {
+            nextRoundBool = true;
+
             nextRoundMessage = `Congratulations attackers, you have usurped the kings. However, you did not receive the necessary
             120 points or more to skip a level or multiple levels.`
 
@@ -178,7 +203,7 @@ function nextRound(score) {
             if (orderIndex == 3) {
                 orderIndex = 0;
             } else {
-                orderIndex++;
+                orderIndex += 1;
             }
 
             nextRoundMessage += ` ${order[orderIndex]} is going to be the next king.`
@@ -193,13 +218,17 @@ function nextRound(score) {
             }
 
         } else if (skips > 0) {
+            nextRoundBool = true;
+
             nextRoundMessage = `Congratulations attackers, you have usurped the king and skipped ${skips} levels.`
             
             //Getting the next King based off order index
             if (orderIndex == 3) {
                 orderIndex = 0;
             } else {
-                orderIndex++;
+                console.log('Inside before else order, orderIndex is', orderIndex);
+                orderIndex = orderIndex + 1;
+                console.log('Inside else order index for skip > 0. orderIndex is now', orderIndex);
             }
 
             //Changing currKingTeam and skipping the attacking team
@@ -225,6 +254,7 @@ function nextRound(score) {
             }
 
         }
+        console.log('orderIndex is ', orderIndex);
     }
 
     console.log('nextRoundMessage is ', nextRoundMessage);
@@ -251,6 +281,7 @@ const TeamIntentHandler = {
             console.log('this was not a jack round');
         } else {
             let daValue = handlerInput.requestEnvelope.request.intent.slots.TeamNumber.value;
+            console.log('daValue is', daValue);
             if (daValue == 'Jacked' || daValue == 'jacked' || daValue == 'jack' || daValue == 'Jack') {
                 if (teamCode == 1) {
                     speakOutput = `Congratulations Team One for jacking Team Two. It really sucks Team Two, but I'm bringing you down to 2.`;
@@ -283,33 +314,6 @@ const TeamIntentHandler = {
             console.log('TeamNumber is ' + teamCode + ' and first team member is ' + oneTeam + ' and second teamMember is ' + twoTeam);
         }
 
-        var king = false;
-        if (typeof handlerInput.requestEnvelope.request.intent.slots.KingName.value === 'undefined') {
-            console.log('user did not input who is the king here');
-        } else {
-            king = handlerInput.requestEnvelope.request.intent.slots.KingName.value;
-            console.log('King is ', king);
-            if (orderGiven) {
-                for (let i = 0; i < order.length; i++) {
-                    if (order[i] == king) {
-                        orderIndex = i;
-                        console.log('orderIndex is', orderIndex);
-
-                        //This sets the current King team to whichever team has the first king
-                        if (orderIndex % 2 == 0) {
-                            currKingTeam = 1;
-                        } else {
-                            currKingTeam = 2;
-                        }
-                        
-                    }
-                }
-                speakOutput = `Thank you for inputting the king. Both teams will be starting at 2.`;
-            } else {
-                speakOutput = `Please give the order before telling me the king`;
-            }
-        }
-
         var roundScore = false;
         if (typeof handlerInput.requestEnvelope.request.intent.slots.RoundScore.value === 'undefined') {
             console.log('user did not input the round score');
@@ -325,6 +329,7 @@ const TeamIntentHandler = {
         if (typeof handlerInput.requestEnvelope.request.intent.slots.PlayerOne.value === 'undefined') {
             console.log('user did not input a player One');
         } else {
+            orderGiven = true;
             playerOne = handlerInput.requestEnvelope.request.intent.slots.PlayerOne.value;
             console.log('Player One is  ', playerOne);
         }
@@ -333,6 +338,7 @@ const TeamIntentHandler = {
         if (typeof handlerInput.requestEnvelope.request.intent.slots.PlayerTwo.value === 'undefined') {
             console.log('user did not input a player Two');
         } else {
+            orderGiven = true;
             playerTwo = handlerInput.requestEnvelope.request.intent.slots.PlayerTwo.value;
             console.log('Player Two is  ', playerTwo);
         }
@@ -357,6 +363,33 @@ const TeamIntentHandler = {
 
         /* End of me tracking all of the players */
         
+        var king = false;
+        if (typeof handlerInput.requestEnvelope.request.intent.slots.KingName.value === 'undefined') {
+            console.log('user did not input who is the king here');
+        } else {
+            king = handlerInput.requestEnvelope.request.intent.slots.KingName.value;
+            console.log('King is ', king);
+            if (orderGiven || order.length == 4) {
+                for (let i = 0; i < order.length; i++) {
+                    if (order[i] == king) {
+                        orderIndex = i;
+                        console.log('orderIndex is', orderIndex);
+
+                        //This sets the current King team to whichever team has the first king
+                        if (orderIndex % 2 == 0) {
+                            currKingTeam = 1;
+                        } else {
+                            currKingTeam = 2;
+                        }
+                        
+                    }
+                }
+                speakOutput = `Thank you for inputting the king. Both teams will be starting at 2.`;
+            } else {
+                speakOutput = `Please give the order before telling me the king`;
+            }
+        }
+
         const attributesManager = handlerInput.attributesManager;
 
         if (twoTeam !== false) {
@@ -395,15 +428,14 @@ const TeamIntentHandler = {
                     "firstMemberTwo": originalMemberTwo,
                     "secondMemberOne": oneTeam,
                     "secondMemberTwo": twoTeam,
-                    "gaveAnOrder": false,
                     "restarted": false
                 }
             } else if (orderGiven) {
                 teamAttributes = {
-                    "firstMemberOne": playerOne,
-                    "firstMemberTwo": playerThree,
-                    "secondMemberOne": playerTwo,
-                    "secondMemberTwo": playerFour,
+                    "firstMemberOne": globalFirstMemberOne,
+                    "firstMemberTwo": globalFirstMemberTwo,
+                    "secondMemberOne": globalSecondMemberOne,
+                    "secondMemberTwo": globalSecondMemberTwo,
                     "gaveAnOrder": true,
                     "restarted": false
                     //Could also say "gaveAnOrder": orderGiven
@@ -419,6 +451,7 @@ const TeamIntentHandler = {
         }
 
         if (nextRoundMessage !== false) {
+            console.log('nextRoundMessage is not false. It is', nextRoundMessage);
             speakOutput = nextRoundMessage;
             if (nextRoundBool) {
                 let teamAttributes = {
@@ -432,11 +465,13 @@ const TeamIntentHandler = {
                     "secondTeamScore": teamTwoCardOrder,
                     "daCurrentKing": orderIndex
                 }
+                console.log('daCurrentKing here is', teamAttributes.daCurrentKing);
 
                 attributesManager.setPersistentAttributes(teamAttributes);
                 await attributesManager.savePersistentAttributes();
             }
         }
+
         var repromptText = `Interestingly empty`;
         if (twoTeam !== false && (typeof twoTeam !== 'undefined') && !alreadyHeardInstructions) {
             speakOutput = `Understood. Good luck team ${teamCode}. May ${oneTeam} and ${twoTeam} be dealt good hands.`;
@@ -518,6 +553,10 @@ const StartOverIntentHandler = {
         globalSecondMemberTwo = false;
         global = false;
         firstGlobal = false;
+
+        teamOneCardOrder = 0;
+        teamTwoCardOrder = 0;
+        currKingTeam = -1;
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
