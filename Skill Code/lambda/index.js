@@ -23,7 +23,7 @@ var globalSecondMemberTwo = false;
 var global = false;
 var firstGlobal = false;
 
-var rotationInstructions = `Now, please tell me the order of rotation, for example John, then if John's team loses, proceeds to Karen being new King, if Karen's team loses, then Amy is new King, etc. Please say: The order of rotation is player one, player two, player three, and player four. I will track it in that order, knowing that player one and player three are on a team, and the others are on the other team.`
+var rotationInstructions = `Now, please tell me the order of rotation, for example John, then if John's team loses, proceeds to Karen being new King, if Karen's team loses, then Amy is new King, etc. Please say: The order of rotation is player one player two player three and player four. I will track it in that order, knowing that player one and player three are on a team, and the others are on the other team.`
 var firstKingInstructions = `Just say, First King is blank, or whoever he first king is.`;
 var instructions = `${rotationInstructions} Then, proceed to tell me who is the first king. ${firstKingInstructions} Finally, continue with the match by saying how many points were earned per round.`;
 
@@ -49,6 +49,7 @@ const LaunchRequestHandler = {
         }
 
         if (firstMemberOne && firstMemberTwo && secondMemberOne && secondMemberTwo) {
+            console.log('I cannot believe it, everything is fuking true');
             global = true;
             globalSecondMemberOne = secondMemberOne;
             globalSecondMemberTwo = secondMemberTwo;
@@ -89,6 +90,7 @@ function nextRound(score) {
     if (allTeams.length < 2) {
         nextRoundMessage = `Please input all the teams, like team one has Jeff and Bezos`;
     } else if (!orderGiven) {
+        console.log('Bruh moment, did not give the order. orderGiven is', orderGiven);
         nextRoundMessage = `Please give the order. ${rotationInstructions}. Afterwards, tell me the score once again`
     } else if (orderIndex == -1) {
         nextRoundMessage = `Please give the first king. ${firstKingInstructions}`
@@ -217,6 +219,7 @@ const TeamIntentHandler = {
         if (typeof handlerInput.requestEnvelope.request.intent.slots.PlayerThree.value === 'undefined') {
             console.log('user did not input a player Three');
         } else {
+            orderGiven = true;
             playerThree = handlerInput.requestEnvelope.request.intent.slots.PlayerThree.value;
             console.log('Player Three is  ', playerThree);
         }
@@ -332,6 +335,55 @@ const HelpIntentHandler = {
             .getResponse();
     }
 };
+
+const StartOverIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.StartOverIntent';
+    },
+    async handle(handlerInput) {
+        const speakOutput = `I am initiating the match restarting mechanism. Everything will be cleared.`
+
+        let teamAttributes = {
+            "firstMemberOne": false
+        }
+
+        const attributesManager = handlerInput.attributesManager;
+
+        attributesManager.setPersistentAttributes(teamAttributes);
+        await attributesManager.savePersistentAttributes();
+
+        const sessionAttributes = await attributesManager.getPersistentAttributes() || {};
+
+        const secondMemberOne = sessionAttributes.hasOwnProperty('secondMemberOne') ? sessionAttributes.secondMemberOne : 0;
+        if (!secondMemberOne) {
+            console.log('Definitive, secondMemberOne does not exist, it is', secondMemberOne);
+        } else {
+            console.log('secondMemberOne exists');
+        }
+
+        /* LOL I'm done with this, just straight up resetting everything */
+        allTeams = [];
+        currKing = false;
+        alreadyHeardInstructions = false;
+        orderGiven = false;
+        order = [];
+        orderIndex = -1;
+        
+        globalFirstMemberOne = false;
+        globalFirstMemberTwo = false;
+        globalSecondMemberOne = false;
+        globalSecondMemberTwo = false;
+        global = false;
+        firstGlobal = false;
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            .reprompt(speakOutput)
+            .getResponse();
+    }
+};
+
 const CancelAndStopIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -425,6 +477,7 @@ exports.handler = Alexa.SkillBuilders.custom()
         TeamIntentHandler,
         // KingIntentHandler,
         HelpIntentHandler,
+        StartOverIntentHandler,
         CancelAndStopIntentHandler,
         SessionEndedRequestHandler,
         IntentReflectorHandler, // make sure IntentReflectorHandler is last so it doesn't override your custom intent handlers
