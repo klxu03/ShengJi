@@ -11,10 +11,25 @@ welcomeMessage = welcomeMessage + ' That means we only have Sheng Ji to play, pl
 const helpMessage = 'Since we only have one game, Sheng Ji, please start off by saying Team one, or which ever number it is, has first member\'s name and second member\'s first name.';
 var allTeams = [];
 var currKing = false;
+var alreadyHeardInstructions = false;
+var orderGiven = false;
+var order = [];
+var orderIndex = -1;
 
-//HasTeamLaunchRequestHandler
-const HasTeamLaunchRequestHandler = {
+var globalFirstMemberOne = false;
+var globalFirstMemberTwo = false;
+var globalSecondMemberOne = false;
+var globalSecondMemberTwo = false;
+var global = false;
+var firstGlobal = false;
+
+var rotationInstructions = `Now, please tell me the order of rotation, for example John, then if John's team loses, proceeds to Karen being new King, if Karen's team loses, then Amy is new King, etc. Please say: The order of rotation is player one, player two, player three, and player four. I will track it in that order, knowing that player one and player three are on a team, and the others are on the other team.`
+var firstKingInstructions = `Just say, First King is blank, or whoever he first king is.`;
+var instructions = `${rotationInstructions} Then, proceed to tell me who is the first king. ${firstKingInstructions} Finally, continue with the match by saying how many points were earned per round.`;
+
+const LaunchRequestHandler = {
     canHandle(handlerInput) {
+
         console.log('In HasTeamHandler, in canHandle');
         const attributesManager = handlerInput.attributesManager;
         const sessionAttributes = attributesManager.getSessionAttributes() || {};
@@ -23,50 +38,111 @@ const HasTeamLaunchRequestHandler = {
         const firstMemberTwo = sessionAttributes.hasOwnProperty('firstMemberTwo') ? sessionAttributes.firstMemberTwo : 0;
         const secondMemberOne = sessionAttributes.hasOwnProperty('secondMemberOne') ? sessionAttributes.secondMemberOne : 0;
         const secondMemberTwo = sessionAttributes.hasOwnProperty('secondMemberTwo') ? sessionAttributes.secondMemberTwo : 0;
+        const gaveAnOrder = sessionAttributes.hasOwnProperty('gaveAnOrder') ? sessionAttributes.gaveAnOrder : 0;
 
         console.log('Inside HasTeamLaunchRequest Handler ', firstMemberOne, ' ', firstMemberTwo, ' ', secondMemberOne, ' ', secondMemberTwo);
 
-        return handlerInput.requestEnvelope.request.type === 'LaunchRequest' && 
-        firstMemberOne && 
-        firstMemberTwo && 
-        secondMemberOne &&
-        secondMemberTwo;
-    },
-    async handle(handlerInput) {
-        console.log('It seems that there was a previously saved game');
+        if (firstMemberOne && firstMemberTwo) {
+            firstGlobal = true;
+            globalFirstMemberOne = firstMemberOne;
+            globalFirstMemberTwo = firstMemberTwo;
+        }
 
-        const attributesManager = handlerInput.attributesManager;
-        const sessionAttributes = attributesManager.getSessionAttributes() || {};
+        if (firstMemberOne && firstMemberTwo && secondMemberOne && secondMemberTwo) {
+            global = true;
+            globalSecondMemberOne = secondMemberOne;
+            globalSecondMemberTwo = secondMemberTwo;
+        }
 
-        const firstMemberOne = sessionAttributes.hasOwnProperty('firstMemberOne') ? sessionAttributes.firstMemberOne : 0;
-        const firstMemberTwo = sessionAttributes.hasOwnProperty('firstMemberTwo') ? sessionAttributes.firstMemberTwo : 0;
-        const secondMemberOne = sessionAttributes.hasOwnProperty('secondMemberOne') ? sessionAttributes.secondMemberOne : 0;
-        const secondMemberTwo = sessionAttributes.hasOwnProperty('secondMemberTwo') ? sessionAttributes.secondMemberTwo : 0;
+        if (typeof gaveAnOrder !== 'undefined') {
+           orderGiven = gaveAnOrder; 
+        }
 
-        // const deviceId = handlerInput.requestEnvelope.context.System.device.deviceId;
-        // const deviceId = Alexa.getDeviceId(handlerInput.requestEnvelope); /* This is an alternative to the above line using the Amazon SDK */
-
-        let speakOutput = `Welcome back Team One, ${firstMemberOne}, ${firstMemberTwo}, and Team Two, ${secondMemberOne}, ${secondMemberTwo}, I hope you guys have a wonderful Sheng Ji match.`;
-
-        return handlerInput.responseBuilder
-            .speak(speakOutput)
-            // .reprompt(repromptText)
-            .getResponse();
-    }
-};
-
-const LaunchRequestHandler = {
-    canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'LaunchRequest';
     }, 
     handle(handlerInput) {
         const repromptText = 'Team One has Alexa and Jeff. What about your team?'
-        
+        if (firstGlobal && !global) {
+            welcomeMessage = `Welcome back! We have already saved team one, with ${globalFirstMemberOne} and ${globalFirstMemberTwo} on the team.
+            ${instructions}`;
+        } else if (global) {
+            if (!orderGiven) {
+                welcomeMessage = `Welcome back! We already have a full match saved, with the players on team 1 being ${globalFirstMemberOne}, 
+                ${globalFirstMemberTwo}, and the players on team 2 being ${globalSecondMemberOne}, and ${globalSecondMemberTwo}.,
+                ${rotationInstructions} ${instructions}`
+            } else {
+                welcomeMessage = `Welcome back! We already have a full match saved, with the players on team 1 being ${globalFirstMemberOne}, 
+                ${globalFirstMemberTwo}, and the players on team 2 being ${globalSecondMemberOne}, and ${globalSecondMemberTwo}.,
+                ${instructions}`
+            }
+        }
+
         return handlerInput.responseBuilder
             .speak(welcomeMessage)
             .reprompt(repromptText)
             .getResponse();
     }
+};
+
+var nextRoundMessage = false;
+function nextRound(score) {
+    if (allTeams.length < 2) {
+        nextRoundMessage = `Please input all the teams, like team one has Jeff and Bezos`;
+    } else if (!orderGiven) {
+        nextRoundMessage = `Please give the order. ${rotationInstructions}. Afterwards, tell me the score once again`
+    } else if (orderIndex == -1) {
+        nextRoundMessage = `Please give the first king. ${firstKingInstructions}`
+    } else {
+        var skips = Math.floor(score/40);
+        skips -= 2;
+        if (skips < 0) {
+            skips++;
+            var levels = 'levels';
+            if (Math.abs(skips) == 1) {
+                levels = 'level';
+            }
+            nextRoundMessage = `Congratulations current kings, you have managed to hold onto your throne. 
+            You are going up ${Math.abs(skips)} ${levels}.`;
+            
+            //Getting the next King based off order index
+            if (orderIndex == 2) {
+                orderIndex = 0;
+            } else if (orderIndex == 3) {
+                orderIndex = 1;
+            } else {
+                orderIndex += 2;
+            }
+
+            nextRoundMessage += ` ${order[orderIndex]} is going to be the next king.`
+
+        } else if (skips == 0) {
+            nextRoundMessage = `Congratulations attackers, you have usurped the kings. However, you did not receive the necessary
+            120 points to skip a level.`
+
+            //Getting the next King based off order index
+            if (orderIndex == 3) {
+                orderIndex = 0;
+            } else {
+                orderIndex++;
+            }
+
+            nextRoundMessage += ` ${order[orderIndex]} is going to be the next king.`
+            
+        } else if (skips > 0) {
+            nextRoundMessage = `Congratulatinos attackers, you have usurped the king and skipped ${skips} ${levels}.`
+            
+            //Getting the next King based off order index
+            if (orderIndex == 3) {
+                orderIndex = 0;
+            } else {
+                orderIndex++;
+            }
+
+            nextRoundMessage += ` ${order[orderIndex]} is going to be the next king.`
+        }
+    }
+
+    console.log('nextRoundMessage is ', nextRoundMessage);
 };
 
 const TeamIntentHandler = {
@@ -76,13 +152,11 @@ const TeamIntentHandler = {
     },
     async handle(handlerInput) {
         var teamCode = false;
-        var bool;
         if (typeof handlerInput.requestEnvelope.request.intent.slots.TeamNumber.value === 'undefined') {
             console.log('user did not input a team number');
         } else {
             teamCode = handlerInput.requestEnvelope.request.intent.slots.TeamNumber.value;
             console.log('teamCode is ', teamCode);
-            bool = true;
         }
 
         var oneTeam = false;
@@ -119,7 +193,44 @@ const TeamIntentHandler = {
         } else {
             roundScore = handlerInput.requestEnvelope.request.intent.slots.RoundScore.value;
             console.log('Round Score is ', roundScore);
+            nextRound(roundScore);
         }
+
+        /* Beginning of me tracking all of the players */
+        var playerOne = false;
+        if (typeof handlerInput.requestEnvelope.request.intent.slots.PlayerOne.value === 'undefined') {
+            console.log('user did not input a player One');
+        } else {
+            playerOne = handlerInput.requestEnvelope.request.intent.slots.PlayerOne.value;
+            console.log('Player One is  ', playerOne);
+        }
+        
+        var playerTwo = false;
+        if (typeof handlerInput.requestEnvelope.request.intent.slots.PlayerTwo.value === 'undefined') {
+            console.log('user did not input a player Two');
+        } else {
+            playerTwo = handlerInput.requestEnvelope.request.intent.slots.PlayerTwo.value;
+            console.log('Player Two is  ', playerTwo);
+        }
+
+        var playerThree = false;
+        if (typeof handlerInput.requestEnvelope.request.intent.slots.PlayerThree.value === 'undefined') {
+            console.log('user did not input a player Three');
+        } else {
+            playerThree = handlerInput.requestEnvelope.request.intent.slots.PlayerThree.value;
+            console.log('Player Three is  ', playerThree);
+        }
+
+        var playerFour = false;
+        if (typeof handlerInput.requestEnvelope.request.intent.slots.PlayerFour.value === 'undefined') {
+            console.log('user did not input a player Four');
+        } else {
+            orderGiven = true;
+            playerFour = handlerInput.requestEnvelope.request.intent.slots.PlayerFour.value;
+            console.log('Player Four is  ', playerFour);
+        }
+
+        /* End of me tracking all of the players */
         
         const attributesManager = handlerInput.attributesManager;
 
@@ -131,6 +242,10 @@ const TeamIntentHandler = {
             };
             allTeams.push(team);
             console.log('Team counter is currently ', allTeams.length);
+        }
+
+        if (playerFour !== false) {
+            order.push(playerOne, playerTwo, playerThree, playerFour);
         }
 
         if (allTeams.length >= 2) {
@@ -148,11 +263,24 @@ const TeamIntentHandler = {
             console.log('originalMemberTwo is ', originalMemberTwo);
 
             //Sets the actual team attribute, firstMemberOne means first team, member one
-            let teamAttributes = {
-                "firstMemberOne": originalMemberOne,
-                "firstMemberTwo": originalMemberTwo,
-                "secondMemberOne": oneTeam,
-                "secondMemberTwo": twoTeam 
+            var teamAttributes;
+            if (!orderGiven) {
+                teamAttributes = {
+                    "firstMemberOne": originalMemberOne,
+                    "firstMemberTwo": originalMemberTwo,
+                    "secondMemberOne": oneTeam,
+                    "secondMemberTwo": twoTeam,
+                    "gaveAnOrder": false 
+                }
+            } else {
+                teamAttributes = {
+                    "firstMemberOne": playerOne,
+                    "firstMemberTwo": playerThree,
+                    "secondMemberOne": playerTwo,
+                    "secondMemberTwo": playerFour,
+                    "gaveAnOrder": true
+                    //Could also say "gaveAnOrder": orderGiven
+                }
             }
 
             console.log('teamAttributes is ', teamAttributes);
@@ -161,20 +289,24 @@ const TeamIntentHandler = {
             await attributesManager.savePersistentAttributes();
             console.log('Attributes Manager' + attributesManager);
 
-            /* These are all straight up undefined */
-            // console.log('attributesManager.firstMemberOne is ', attributesManager.firstMemberOne);
-            // console.log('attributesManager.firstMemberTwo is ', attributesManager.firstMemberTwo);
-            // console.log('attributesManager.secondMemberOne is', attributesManager.secondMemberOne);
-            // console.log('attributesManager.secondMemberTwo is ', attributesManager.secondMemberTwo);
-
         }
 
-        var speakOutput = `So far nothing`;
+        var speakOutput = `Thank you for the input`;
+        if (nextRoundMessage !== false) {
+            speakOutput = nextRoundMessage;            
+        }
         var repromptText = `Interestingly empty`;
-        if (twoTeam !== false && (typeof twoTeam !== 'undefined') && bool) {
+        if (twoTeam !== false && (typeof twoTeam !== 'undefined') && !alreadyHeardInstructions) {
             speakOutput = `Understood. Good luck team ${teamCode}. May ${oneTeam} and ${twoTeam} be dealt good hands.`;
             if (allTeams.length === 2) {
-                speakOutput = speakOutput + ` It seems that you have a full game. Just say Alexa Exit, and when you reopen Alexa you should be able to begin the match. We only allow two teams, so if you keep adding they will not be saved.`;
+                alreadyHeardInstructions = true;
+                if (!orderGiven) {
+                    speakOutput = speakOutput + ` It seems that you have a full game. ${rotationInstructions} ${instructions} If you leave or exit Alexa in the middle of the game,
+                    worry not since we will save the match for you.`;
+                } else {
+                    speakOutput = speakOutput + ` It seems that you have a full game. ${instructions} If you leave or exit Alexa in the middle of the game,
+                    worry not since we will save the match for you.`;
+                }
             }
             repromptText = 'Sorry, but Alexa does not accept those two names, please give two nicknames.';
         }
@@ -185,19 +317,6 @@ const TeamIntentHandler = {
             .getResponse();
     }
 };
-
-// const KingIntenthandler = {
-//     canHandle(handlerInput) {
-//         return handlerInput.requestEnvelope.request.type === 'IntentRequest'
-//         && handlerInput.requestEnvelope.request.intent.name === 'KingIntent';
-//     },
-//     handle(handlerInput) {
-//         const name = handlerInput.requestEnvelope.request.intent.slots.KingName.value;
-//         if ()
-
-
-//     }
-// };
 
 const HelpIntentHandler = {
     canHandle(handlerInput) {
@@ -302,7 +421,6 @@ exports.handler = Alexa.SkillBuilders.custom()
     )
     .addRequestHandlers(
         /* Check to see if order matters here or like at the beginning in order of that (27:35) of video */
-        HasTeamLaunchRequestHandler,
         LaunchRequestHandler,
         TeamIntentHandler,
         // KingIntentHandler,
