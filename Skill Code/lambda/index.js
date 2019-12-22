@@ -10,11 +10,17 @@ welcomeMessage = welcomeMessage + ' That means we only have Sheng Ji to play, pl
 // const helpMessage = 'If you would like to start a game, say Start blank game. If you would like to resume your last game, please say Resume blank game';
 const helpMessage = 'Since we only have one game, Sheng Ji, please start off by saying Team one, or which ever number it is, has first member\'s name and second member\'s first name.';
 var allTeams = [];
-var currKing = false;
 var alreadyHeardInstructions = false;
 var orderGiven = false;
 var order = [];
 var orderIndex = -1;
+
+//All of these variables are dedicated to after all of the inputs have been taken, and now only round score is needed for each round
+var cardOrder = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'Jack', 'Queen', 'King', 'Ace'];
+var teamOneCardOrder = 0;
+var teamTwoCardOrder = 0;
+var currKingTeam = -1;
+var gameOver = false;
 
 var globalFirstMemberOne = false;
 var globalFirstMemberTwo = false;
@@ -24,8 +30,9 @@ var global = false;
 var firstGlobal = false;
 
 var rotationInstructions = `Now, please tell me the order of rotation, for example John, then if John's team loses, proceeds to Karen being new King, if Karen's team loses, then Amy is new King, etc. Please say: The order of rotation is player one player two player three and player four. I will track it in that order, knowing that player one and player three are on a team, and the others are on the other team.`
-var firstKingInstructions = `Just say, First King is blank, or whoever he first king is.`;
-var instructions = `${rotationInstructions} Then, proceed to tell me who is the first king. ${firstKingInstructions} Finally, continue with the match by saying how many points were earned per round.`;
+var firstKingInstructions = `Just say: blank, or whoever he first king is, is the first king. For example: Jeff is the first king.`;
+var instructions = `${rotationInstructions} Then, proceed to tell me who is the first king. ${firstKingInstructions} Finally, continue with the match by saying how many points were earned per round.
+If you ever want to restart the match, say: Please restart my match.`;
 
 const LaunchRequestHandler = {
     canHandle(handlerInput) {
@@ -39,24 +46,29 @@ const LaunchRequestHandler = {
         const secondMemberOne = sessionAttributes.hasOwnProperty('secondMemberOne') ? sessionAttributes.secondMemberOne : 0;
         const secondMemberTwo = sessionAttributes.hasOwnProperty('secondMemberTwo') ? sessionAttributes.secondMemberTwo : 0;
         const gaveAnOrder = sessionAttributes.hasOwnProperty('gaveAnOrder') ? sessionAttributes.gaveAnOrder : 0;
+        console.log('gaveAnOrder is', gaveAnOrder);
+        const restarted = sessionAttributes.hasOwnProperty('restarted') ? sessionAttributes.restarted : 0;
 
         console.log('Inside HasTeamLaunchRequest Handler ', firstMemberOne, ' ', firstMemberTwo, ' ', secondMemberOne, ' ', secondMemberTwo);
+        console.log('Inside Launcher, restarted is ', restarted);
 
-        if (firstMemberOne && firstMemberTwo) {
-            firstGlobal = true;
-            globalFirstMemberOne = firstMemberOne;
-            globalFirstMemberTwo = firstMemberTwo;
-        }
+        if (!restarted) {
+            if (firstMemberOne && firstMemberTwo) {
+                firstGlobal = true;
+                globalFirstMemberOne = firstMemberOne;
+                globalFirstMemberTwo = firstMemberTwo;
+            }
 
-        if (firstMemberOne && firstMemberTwo && secondMemberOne && secondMemberTwo) {
-            console.log('I cannot believe it, everything is fuking true');
-            global = true;
-            globalSecondMemberOne = secondMemberOne;
-            globalSecondMemberTwo = secondMemberTwo;
-        }
+            if (firstMemberOne && firstMemberTwo && secondMemberOne && secondMemberTwo) {
+                console.log('I cannot believe it, everything is fuking true');
+                global = true;
+                globalSecondMemberOne = secondMemberOne;
+                globalSecondMemberTwo = secondMemberTwo;
+            }
 
-        if (typeof gaveAnOrder !== 'undefined') {
-           orderGiven = gaveAnOrder; 
+            if (typeof gaveAnOrder !== 'undefined') {
+                orderGiven = gaveAnOrder; 
+            }
         }
 
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'LaunchRequest';
@@ -94,17 +106,15 @@ function nextRound(score) {
         nextRoundMessage = `Please give the order. ${rotationInstructions}. Afterwards, tell me the score once again`
     } else if (orderIndex == -1) {
         nextRoundMessage = `Please give the first king. ${firstKingInstructions}`
+    } else if (gameOver) {
+        nextRoundMessage = `The match is already over. Say: please restart my match to begin anew.`;
     } else {
         var skips = Math.floor(score/40);
         skips -= 2;
         if (skips < 0) {
-            skips++;
-            var levels = 'levels';
-            if (Math.abs(skips) == 1) {
-                levels = 'level';
-            }
+            skips = Math.abs(skips);
             nextRoundMessage = `Congratulations current kings, you have managed to hold onto your throne. 
-            You are going up ${Math.abs(skips)} ${levels}.`;
+            You are going up ${Math.abs(skips)} levels.`;
             
             //Getting the next King based off order index
             if (orderIndex == 2) {
@@ -116,10 +126,29 @@ function nextRound(score) {
             }
 
             nextRoundMessage += ` ${order[orderIndex]} is going to be the next king.`
+            
+            //Skipping the original king team
+            if (currKingTeam == 1) {
+                teamOneCardOrder += skips;
+                if (teamOneCardOrder >= cardOrder.length) {
+                    gameOver = true;
+                    nextRoundMessage = `Congratulations Team One for winning the match. ${globalSecondMemberOne} and ${globalSecondMemberTwo} better luck next time. In order to restart and play a new match, simply say: Please restart my match.`;
+                } else {
+                    nextRoundMessage += ` ${order[orderIndex]} is going to be the next king playing the ${cardOrder[teamOneCardOrder]} round.`;
+                }
+            } else {
+                teamTwoCardOrder += skips;
+                if (teamTwoCardOrder >= cardOrder.length) {
+                    gameOver = true;
+                    nextRoundMessage = `Congratulations Team Two for winning the match. ${globalFirstMemberOne} and ${globalFirstMemberTwo} better luck next time. In order to restart and play a new match, simply say: Please restart my match.`;
+                } else {
+                    nextRoundMessage += ` ${order[orderIndex]} is going to be the next king playing the ${cardOrder[teamTwoCardOrder]} round.`;
+                }
+            }
 
         } else if (skips == 0) {
             nextRoundMessage = `Congratulations attackers, you have usurped the kings. However, you did not receive the necessary
-            120 points to skip a level.`
+            120 points or more to skip a level or multiple levels.`
 
             //Getting the next King based off order index
             if (orderIndex == 3) {
@@ -130,8 +159,17 @@ function nextRound(score) {
 
             nextRoundMessage += ` ${order[orderIndex]} is going to be the next king.`
             
+            //Changing the currKingTeam
+            if (currKingTeam == 1) {
+                currKingTeam = 2;
+                nextRoundMessage += ` ${order[orderIndex]} is going to be the next king playing the ${cardOrder[teamTwoCardOrder]} round.`;
+            } else {
+                currKingTeam = 1;
+                nextRoundMessage += ` ${order[orderIndex]} is going to be the next king playing the ${cardOrder[teamOneCardOrder]} round.`;
+            }
+
         } else if (skips > 0) {
-            nextRoundMessage = `Congratulatinos attackers, you have usurped the king and skipped ${skips} ${levels}.`
+            nextRoundMessage = `Congratulations attackers, you have usurped the king and skipped ${skips} levels.`
             
             //Getting the next King based off order index
             if (orderIndex == 3) {
@@ -140,7 +178,28 @@ function nextRound(score) {
                 orderIndex++;
             }
 
-            nextRoundMessage += ` ${order[orderIndex]} is going to be the next king.`
+            //Changing currKingTeam and skipping the attacking team
+            if (currKingTeam == 1) {
+                teamTwoCardOrder += skips;
+                currKingTeam = 2;
+                if (teamTwoCardOrder >= cardOrder.length) {
+                    gameOver = true;
+                    nextRoundMessage = `Congratulations Team Two for winning the match. ${globalFirstMemberOne} and ${globalFirstMemberTwo} better luck next time. In order to restart and play a new match, simply say: Please restart my match.`;
+                } else {
+                    nextRoundMessage += ` ${order[orderIndex]} is going to be the next king playing ${cardOrder[teamTwoCardOrder]} round.`;
+                }
+
+            } else {
+                teamOneCardOrder += skips;
+                currKingTeam = 1;
+                if (teamOneCardOrder >= cardOrder.length) {
+                    gameOver = true;
+                    nextRoundMessage = `Congratulations Team One for winning the match. ${globalSecondMemberOne} and ${globalSecondMemberTwo} better luck next time. In order to restart and play a new match, simply say: Please restart my match.`;
+                } else {
+                    nextRoundMessage += ` ${order[orderIndex]} is going to be the next king playing ${cardOrder[teamOneCardOrder]} round.`;
+                }
+            }
+
         }
     }
 
@@ -153,6 +212,8 @@ const TeamIntentHandler = {
             && handlerInput.requestEnvelope.request.intent.name === 'TeamIntent';
     },
     async handle(handlerInput) {
+        var speakOutput = `Thank you for the input`;
+
         var teamCode = false;
         if (typeof handlerInput.requestEnvelope.request.intent.slots.TeamNumber.value === 'undefined') {
             console.log('user did not input a team number');
@@ -184,8 +245,24 @@ const TeamIntentHandler = {
         } else {
             king = handlerInput.requestEnvelope.request.intent.slots.KingName.value;
             console.log('King is ', king);
-            if (!currKing) {
-                currKing = king;
+            if (orderGiven) {
+                for (let i = 0; i < order.length; i++) {
+                    if (order[i] == king) {
+                        orderIndex = i;
+                        console.log('orderIndex is', orderIndex);
+
+                        //This sets the current King team to whichever team has the first king
+                        if (orderIndex % 2 == 0) {
+                            currKingTeam = 1;
+                        } else {
+                            currKingTeam = 2;
+                        }
+                        
+                    }
+                }
+                speakOutput = `Thank you for inputting the king. Both teams will be starting at 2.`;
+            } else {
+                speakOutput = `Please give the order before telling me the king`;
             }
         }
 
@@ -196,6 +273,7 @@ const TeamIntentHandler = {
             roundScore = handlerInput.requestEnvelope.request.intent.slots.RoundScore.value;
             console.log('Round Score is ', roundScore);
             nextRound(roundScore);
+            speakOutput = `Thank you for telling me the round score, I got that the round score is ${roundScore}.`;
         }
 
         /* Beginning of me tracking all of the players */
@@ -255,7 +333,7 @@ const TeamIntentHandler = {
             //Goes ahead and grabs the opposing team
             var originalMemberOne;
             var originalMemberTwo;
-            for(var i = 0; i < allTeams.length; i++) {
+            for(let i = 0; i < allTeams.length; i++) {
                 console.log('i is ', i, ' allTeams[i].codeTeam is ', allTeams[i].codeTeam);
                 if (allTeams[i].codeTeam == 1) {
                     originalMemberOne = allTeams[i].teamOne;
@@ -273,7 +351,8 @@ const TeamIntentHandler = {
                     "firstMemberTwo": originalMemberTwo,
                     "secondMemberOne": oneTeam,
                     "secondMemberTwo": twoTeam,
-                    "gaveAnOrder": false 
+                    "gaveAnOrder": false,
+                    "restarted": false
                 }
             } else {
                 teamAttributes = {
@@ -281,7 +360,8 @@ const TeamIntentHandler = {
                     "firstMemberTwo": playerThree,
                     "secondMemberOne": playerTwo,
                     "secondMemberTwo": playerFour,
-                    "gaveAnOrder": true
+                    "gaveAnOrder": true,
+                    "restarted": false
                     //Could also say "gaveAnOrder": orderGiven
                 }
             }
@@ -294,7 +374,6 @@ const TeamIntentHandler = {
 
         }
 
-        var speakOutput = `Thank you for the input`;
         if (nextRoundMessage !== false) {
             speakOutput = nextRoundMessage;            
         }
@@ -342,10 +421,13 @@ const StartOverIntentHandler = {
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.StartOverIntent';
     },
     async handle(handlerInput) {
-        const speakOutput = `I am initiating the match restarting mechanism. Everything will be cleared.`
+        var speakOutput = `I am initiating the match restarting mechanism. Everything will be cleared.`
+        speakOutput += ` It will take a few minutes to officially process. If you make new teams, the new teams will be saved, but the next
+        time you open up the welcome message will act as if there is a saved match.`;
 
         let teamAttributes = {
-            "firstMemberOne": false
+            "firstMemberOne": false,
+            "restarted": true
         }
 
         const attributesManager = handlerInput.attributesManager;
@@ -362,9 +444,11 @@ const StartOverIntentHandler = {
             console.log('secondMemberOne exists');
         }
 
+        //Wish I saw this earlier lol
+        attributesManager.deletePersistentAttributes();
+
         /* LOL I'm done with this, just straight up resetting everything */
         allTeams = [];
-        currKing = false;
         alreadyHeardInstructions = false;
         orderGiven = false;
         order = [];
@@ -475,7 +559,6 @@ exports.handler = Alexa.SkillBuilders.custom()
         /* Check to see if order matters here or like at the beginning in order of that (27:35) of video */
         LaunchRequestHandler,
         TeamIntentHandler,
-        // KingIntentHandler,
         HelpIntentHandler,
         StartOverIntentHandler,
         CancelAndStopIntentHandler,
