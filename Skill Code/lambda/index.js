@@ -5,10 +5,12 @@ const Alexa = require('ask-sdk-core');
 const persistenceAdapter = require('ask-sdk-s3-persistence-adapter');
 
 const numberOfGames = 1;
-var welcomeMessage = 'Welcome to the Family Games Alexa App. Currently we have ' + numberOfGames + ' games available to play.';
+var welcomeMessage = 'Welcome to the Family Games Alexa App. Currently we have ' + numberOfGames + ' game available to play, Sheng Ji.';
 welcomeMessage = welcomeMessage + ' That means we only have Sheng Ji to play, please start off by saying Team one, or which ever number it is, has first member\'s name and second member\'s first name.';
+welcomeMessage = welcomeMessage + ' If you have any issues, simply say: Help me. Then, I will give you the help message tutorial.';
 // const helpMessage = 'If you would like to start a game, say Start blank game. If you would like to resume your last game, please say Resume blank game';
-const helpMessage = 'Since we only have one game, Sheng Ji, please start off by saying Team one, or which ever number it is, has first member\'s name and second member\'s first name.';
+const helpMessage = `If you are having troubles telling me the team members, then start off by saying Team one, or which ever number it is, has first member\'s name and second member\'s first name.
+ Here are some instructions after you have told me the team members. ${instructions} Before you begin by saying the number of points, make sure to tell me who the first king is. ${firstKingInstructions} I hope I answered your questions, and good luck!`;
 var allTeams = [];
 var alreadyHeardInstructions = false;
 var orderGiven = false;
@@ -32,7 +34,7 @@ var firstGlobal = false;
 var rotationInstructions = `Now, please tell me the order of rotation, for example John, then if John's team loses, proceeds to Karen being new King, if Karen's team loses, then Amy is new King, etc. Please say: The order of rotation is player one player two player three and player four. I will track it in that order, knowing that player one and player three are on a team, and the others are on the other team.`
 var firstKingInstructions = `Just say: blank, or whoever he first king is, is the first king. For example: Jeff is the first king.`;
 var instructions = `${rotationInstructions} Then, proceed to tell me who is the first king. ${firstKingInstructions} Finally, continue with the match by saying how many points were earned per round.
-If you ever want to restart the match, say: Please restart my match.`;
+If you ever want to restart the match, say: Please restart my match. If you the attacker team just used a jack to defeat the previous king team, say Team Number just jacked the kings, with the only thing to change is Team Number replacing it with something like Team One.`;
 
 const LaunchRequestHandler = {
     canHandle(handlerInput) {
@@ -52,23 +54,27 @@ const LaunchRequestHandler = {
         console.log('Inside HasTeamLaunchRequest Handler ', firstMemberOne, ' ', firstMemberTwo, ' ', secondMemberOne, ' ', secondMemberTwo);
         console.log('Inside Launcher, restarted is ', restarted);
 
-        if (!restarted) {
-            if (firstMemberOne && firstMemberTwo) {
-                firstGlobal = true;
-                globalFirstMemberOne = firstMemberOne;
-                globalFirstMemberTwo = firstMemberTwo;
-            }
+        const firstTeamsScore = sessionAttributes.hasOwnProperty('firstTeamScore') ? sessionAttributes.firstTeamScore : 0;
+        const secondTeamsScore = sessionAttributes.hasOwnProperty('secondTeamScore') ? sessionAttributes.secondTeamScore : 0;
+        const orderOfDaCurrentKing = sessionAttributes.hasOwnProperty('daCurrentKing') ? sessionAttributes.daCurrentKing : 0;
 
+        if (!restarted) {
             if (firstMemberOne && firstMemberTwo && secondMemberOne && secondMemberTwo) {
                 console.log('I cannot believe it, everything is fuking true');
+                firstGlobal = true;
                 global = true;
+                globalFirstMemberOne = firstMemberOne;
+                globalFirstMemberTwo = firstMemberTwo;
                 globalSecondMemberOne = secondMemberOne;
                 globalSecondMemberTwo = secondMemberTwo;
             }
 
             if (typeof gaveAnOrder !== 'undefined') {
-                orderGiven = gaveAnOrder; 
+                orderGiven = false; 
+            } else {
+                orderGiven = gaveAnOrder;
             }
+
         }
 
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'LaunchRequest';
@@ -78,7 +84,24 @@ const LaunchRequestHandler = {
         if (firstGlobal && !global) {
             welcomeMessage = `Welcome back! We have already saved team one, with ${globalFirstMemberOne} and ${globalFirstMemberTwo} on the team.
             ${instructions}`;
-        } else if (global) {
+        } else if (global && (typeof firstTeamsScore !== 'undefined') && (typeof secondTeamsScore !== 'undefined') && (typeof orderOfDaCurrentKing !== 'undefined')) {
+            order = [globalFirstMemberOne, globalSecondMemberOne, globalFirstMemberTwo, globalSecondMemberTwo];
+            teamOneCardOrder = firstTeamsScore;
+            teamTwoCardOrder = secondTeamsScore;
+            orderIndex = orderOfDaCurrentKing;
+            if ((orderIndex % 2) == 0) {
+                currKingTeam = 1;
+            } else {
+                currKingTeam = 2;
+            }
+            welcomeMessage = `Welcome back! I am automatically resuming your last match. The order is
+            ${order[0]}, followed by ${order[1]}, followed by ${order[2]}, and then finally followed by ${order[3]}.
+            Currently the team that is the current king is ${currKingTeam} and ${order[orderIndex]} is currently playing the king.
+            Team one is playing the ${cardOrder[teamOneCardOrder]} level and team two is playing the ${cardOrder[teamTwoCardOrder]} level.
+            Good luck to both teams in your current match.
+            `;
+
+        } else {
             if (!orderGiven) {
                 welcomeMessage = `Welcome back! We already have a full match saved, with the players on team 1 being ${globalFirstMemberOne}, 
                 ${globalFirstMemberTwo}, and the players on team 2 being ${globalSecondMemberOne}, and ${globalSecondMemberTwo}.,
@@ -98,6 +121,7 @@ const LaunchRequestHandler = {
 };
 
 var nextRoundMessage = false;
+var nextRoundBool = false;
 function nextRound(score) {
     if (allTeams.length < 2) {
         nextRoundMessage = `Please input all the teams, like team one has Jeff and Bezos`;
@@ -213,13 +237,33 @@ const TeamIntentHandler = {
     },
     async handle(handlerInput) {
         var speakOutput = `Thank you for the input`;
-
+        
         var teamCode = false;
         if (typeof handlerInput.requestEnvelope.request.intent.slots.TeamNumber.value === 'undefined') {
             console.log('user did not input a team number');
         } else {
             teamCode = handlerInput.requestEnvelope.request.intent.slots.TeamNumber.value;
             console.log('teamCode is ', teamCode);
+        }
+
+        var jackedUp = false;
+        if (typeof handlerInput.requestEnvelope.request.intent.slots.Jacked.value === 'undefined') {
+            console.log('this was not a jack round');
+        } else {
+            let daValue = handlerInput.requestEnvelope.request.intent.slots.TeamNumber.value;
+            if (daValue == 'Jacked' || daValue == 'jacked' || daValue == 'jack' || daValue == 'Jack') {
+                if (teamCode == 1) {
+                    speakOutput = `Congratulations Team One for jacking Team Two. It really sucks Team Two, but I'm bringing you down to 2.`;
+                    teamTwoCardOrder = 0;
+
+                } else if (teamCode == 2) {
+                    speakOutput = `Congratulations Team Two for jacking Team One. It really sucks Team One, but I'm bringing you down to 2.`;
+                    teamOneCardOrder = 0;
+
+                } else {
+                    speakOutput = `I'm sorry, I didn't quite catch which team jacked which team. Please tell me in this order: Attacking team number just Jacked the kings.`
+                }
+            }
         }
 
         var oneTeam = false;
@@ -344,7 +388,7 @@ const TeamIntentHandler = {
             console.log('originalMemberTwo is ', originalMemberTwo);
 
             //Sets the actual team attribute, firstMemberOne means first team, member one
-            var teamAttributes;
+            let teamAttributes;
             if (!orderGiven) {
                 teamAttributes = {
                     "firstMemberOne": originalMemberOne,
@@ -354,7 +398,7 @@ const TeamIntentHandler = {
                     "gaveAnOrder": false,
                     "restarted": false
                 }
-            } else {
+            } else if (orderGiven) {
                 teamAttributes = {
                     "firstMemberOne": playerOne,
                     "firstMemberTwo": playerThree,
@@ -375,7 +419,23 @@ const TeamIntentHandler = {
         }
 
         if (nextRoundMessage !== false) {
-            speakOutput = nextRoundMessage;            
+            speakOutput = nextRoundMessage;
+            if (nextRoundBool) {
+                let teamAttributes = {
+                    "firstMemberOne": globalFirstMemberOne,
+                    "firstMemberTwo": globalFirstMemberTwo,
+                    "secondMemberOne": globalSecondMemberOne,
+                    "secondMemberTwo": globalSecondMemberTwo,
+                    "gaveAnOrder": true,
+                    "restarted": false,
+                    "firstTeamScore": teamOneCardOrder,
+                    "secondTeamScore": teamTwoCardOrder,
+                    "daCurrentKing": orderIndex
+                }
+
+                attributesManager.setPersistentAttributes(teamAttributes);
+                await attributesManager.savePersistentAttributes();
+            }
         }
         var repromptText = `Interestingly empty`;
         if (twoTeam !== false && (typeof twoTeam !== 'undefined') && !alreadyHeardInstructions) {
@@ -406,11 +466,9 @@ const HelpIntentHandler = {
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.HelpIntent';
     },
     handle(handlerInput) {
-        const speakOutput = 'You can say hello to me! How can I help?';
-
         return handlerInput.responseBuilder
-            .speak(speakOutput)
-            .reprompt(speakOutput)
+            .speak(helpMessage)
+            .reprompt(helpMessage)
             .getResponse();
     }
 };
