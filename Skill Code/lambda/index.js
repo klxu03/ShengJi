@@ -10,6 +10,7 @@ welcomeMessage = welcomeMessage + ' That means we only have Sheng Ji to play, pl
 // const helpMessage = 'If you would like to start a game, say Start blank game. If you would like to resume your last game, please say Resume blank game';
 const helpMessage = 'Since we only have one game, Sheng Ji, please start off by saying Team one, or which ever number it is, has first member\'s name and second member\'s first name.';
 var allTeams = [];
+var currKing = false;
 
 //HasTeamLaunchRequestHandler
 const HasTeamLaunchRequestHandler = {
@@ -45,10 +46,11 @@ const HasTeamLaunchRequestHandler = {
         // const deviceId = handlerInput.requestEnvelope.context.System.device.deviceId;
         // const deviceId = Alexa.getDeviceId(handlerInput.requestEnvelope); /* This is an alternative to the above line using the Amazon SDK */
 
-        let speakOutput = `Welcome back ${firstMemberOne}, ${firstMemberTwo}, ${secondMemberOne}, ${secondMemberTwo}, I hope you guys have a wonderful Sheng Ji match.`;
+        let speakOutput = `Welcome back Team One, ${firstMemberOne}, ${firstMemberTwo}, and Team Two, ${secondMemberOne}, ${secondMemberTwo}, I hope you guys have a wonderful Sheng Ji match.`;
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
+            // .reprompt(repromptText)
             .getResponse();
     }
 };
@@ -73,27 +75,63 @@ const TeamIntentHandler = {
             && handlerInput.requestEnvelope.request.intent.name === 'TeamIntent';
     },
     async handle(handlerInput) {
-        const teamCode = handlerInput.requestEnvelope.request.intent.slots.TeamNumber.value;
-        const oneTeam = handlerInput.requestEnvelope.request.intent.slots.TeamMemberOne.value;
-        const twoTeam = handlerInput.requestEnvelope.request.intent.slots.TeamMemberTwo.value;
-        console.log('TeamNumber is ' + teamCode + ' and first team member is ' + oneTeam + ' and second teamMember is ' + twoTeam);
-        
-        //Check to see if the user inputted a TeamMemberTwo slot (since it's not required)
-        // if (handlerInput.requestEnvelope.request.intent.slots.teammembertwo.value !== null) {
-        //     twoTeam = handlerInput.requestEnvelope.request.intent.slots.teammembertwo.value;
-        //     twoTeam = ' and ' + twoTeam;
-        // }
+        var teamCode = false;
+        var bool;
+        if (typeof handlerInput.requestEnvelope.request.intent.slots.TeamNumber.value === 'undefined') {
+            console.log('user did not input a team number');
+        } else {
+            teamCode = handlerInput.requestEnvelope.request.intent.slots.TeamNumber.value;
+            console.log('teamCode is ', teamCode);
+            bool = true;
+        }
+
+        var oneTeam = false;
+        if (typeof handlerInput.requestEnvelope.request.intent.slots.TeamMemberOne.value === 'undefined') {
+            console.log('user did not input a team number');
+        } else {
+            oneTeam = handlerInput.requestEnvelope.request.intent.slots.TeamMemberOne.value;
+            console.log('oneTeam is ', oneTeam);
+        }
+
+        var twoTeam = false;
+        if (typeof handlerInput.requestEnvelope.request.intent.slots.TeamMemberTwo.value === 'undefined') {
+            console.log('user did not input a team number');
+        } else {
+            twoTeam = handlerInput.requestEnvelope.request.intent.slots.TeamMemberTwo.value;
+            console.log('twoTeam is ', twoTeam);
+            console.log('TeamNumber is ' + teamCode + ' and first team member is ' + oneTeam + ' and second teamMember is ' + twoTeam);
+        }
+
+        var king = false;
+        if (typeof handlerInput.requestEnvelope.request.intent.slots.KingName.value === 'undefined') {
+            console.log('user did not input who is the king here');
+        } else {
+            king = handlerInput.requestEnvelope.request.intent.slots.KingName.value;
+            console.log('King is ', king);
+            if (!currKing) {
+                currKing = king;
+            }
+        }
+
+        var roundScore = false;
+        if (typeof handlerInput.requestEnvelope.request.intent.slots.RoundScore.value === 'undefined') {
+            console.log('user did not input the round score');
+        } else {
+            roundScore = handlerInput.requestEnvelope.request.intent.slots.RoundScore.value;
+            console.log('Round Score is ', roundScore);
+        }
         
         const attributesManager = handlerInput.attributesManager;
 
-        var team = {
-            codeTeam: teamCode,
-            teamOne: oneTeam,
-            teamTwo: twoTeam
-        };
-
-        allTeams.push(team);
-        console.log('Team counter is currently ', allTeams.length);
+        if (twoTeam !== false) {
+            var team = {
+                codeTeam: teamCode,
+                teamOne: oneTeam,
+                teamTwo: twoTeam
+            };
+            allTeams.push(team);
+            console.log('Team counter is currently ', allTeams.length);
+        }
 
         if (allTeams.length >= 2) {
             //Goes ahead and grabs the opposing team
@@ -123,18 +161,23 @@ const TeamIntentHandler = {
             await attributesManager.savePersistentAttributes();
             console.log('Attributes Manager' + attributesManager);
 
-            console.log('attributesManager.firstMemberOne is ', attributesManager.firstMemberOne);
-            console.log('attributesManager.firstMemberTwo is ', attributesManager.firstMemberTwo);
-            console.log('attributesManager.secondMemberOne is', attributesManager.secondMemberOne);
-            console.log('attributesManager.secondMemberTwo is ', attributesManager.secondMemberTwo);
+            /* These are all straight up undefined */
+            // console.log('attributesManager.firstMemberOne is ', attributesManager.firstMemberOne);
+            // console.log('attributesManager.firstMemberTwo is ', attributesManager.firstMemberTwo);
+            // console.log('attributesManager.secondMemberOne is', attributesManager.secondMemberOne);
+            // console.log('attributesManager.secondMemberTwo is ', attributesManager.secondMemberTwo);
 
         }
 
-        var speakOutput = `Understood. Good luck team ${teamCode}. May ${oneTeam} and ${twoTeam} be dealt good hands.`;
-        if (allTeams.length === 2) {
-            speakOutput = speakOutput + ` It seems that you have a full game. Just say Alexa Exit, and when you reopen Alexa you should be able to begin the match. We only allow two teams, so if you keep adding they will not be saved.`;
+        var speakOutput = `So far nothing`;
+        var repromptText = `Interestingly empty`;
+        if (twoTeam !== false && (typeof twoTeam !== 'undefined') && bool) {
+            speakOutput = `Understood. Good luck team ${teamCode}. May ${oneTeam} and ${twoTeam} be dealt good hands.`;
+            if (allTeams.length === 2) {
+                speakOutput = speakOutput + ` It seems that you have a full game. Just say Alexa Exit, and when you reopen Alexa you should be able to begin the match. We only allow two teams, so if you keep adding they will not be saved.`;
+            }
+            repromptText = 'Sorry, but Alexa does not accept those two names, please give two nicknames.';
         }
-        const repromptText = 'Sorry, but Alexa does not accept those two names, please give two nicknames.';
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
@@ -143,16 +186,18 @@ const TeamIntentHandler = {
     }
 };
 
-const FirstKingIntentHandler = {
-    canHandle(handlerInput) {
-        return handlerInput.requestEnvelope.request.type === 'IntentRequest'
-            && handlerInput.requestEnvelope.request.intent.name === 'FirstKing';
-    },
-    async handle(handlerInput) {
-        const numberTeam = handlerInput.requestEnvelope.request.intent.slots.TeamNumber.value;
-        
-    }
-};
+// const KingIntenthandler = {
+//     canHandle(handlerInput) {
+//         return handlerInput.requestEnvelope.request.type === 'IntentRequest'
+//         && handlerInput.requestEnvelope.request.intent.name === 'KingIntent';
+//     },
+//     handle(handlerInput) {
+//         const name = handlerInput.requestEnvelope.request.intent.slots.KingName.value;
+//         if ()
+
+
+//     }
+// };
 
 const HelpIntentHandler = {
     canHandle(handlerInput) {
@@ -260,6 +305,7 @@ exports.handler = Alexa.SkillBuilders.custom()
         HasTeamLaunchRequestHandler,
         LaunchRequestHandler,
         TeamIntentHandler,
+        // KingIntentHandler,
         HelpIntentHandler,
         CancelAndStopIntentHandler,
         SessionEndedRequestHandler,
