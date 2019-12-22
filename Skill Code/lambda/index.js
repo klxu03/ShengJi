@@ -462,7 +462,9 @@ const TeamIntentHandler = {
         }
 
         console.log('nextRoundMessage is not false. It is', nextRoundMessage);
-        speakOutput = nextRoundMessage;
+        if (nextRoundMessage != false) {
+            speakOutput = nextRoundMessage;
+        }
         if (nextRoundBool || jackedUp) {
             let teamAttributes = {
                 "firstMemberOne": globalFirstMemberOne,
