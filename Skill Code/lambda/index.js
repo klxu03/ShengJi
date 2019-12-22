@@ -280,19 +280,24 @@ const TeamIntentHandler = {
         if (typeof handlerInput.requestEnvelope.request.intent.slots.Jacked.value === 'undefined') {
             console.log('this was not a jack round');
         } else {
-            let daValue = handlerInput.requestEnvelope.request.intent.slots.TeamNumber.value;
+            console.log('yippe jackedUp aboutta be true');
+            jackedUp = true;
+            let daValue = handlerInput.requestEnvelope.request.intent.slots.Jacked.value;
             console.log('daValue is', daValue);
             if (daValue == 'Jacked' || daValue == 'jacked' || daValue == 'jack' || daValue == 'Jack') {
+                console.log('jack has passed the if condition. Team code in here is', teamCode);
                 if (teamCode == 1) {
-                    speakOutput = `Congratulations Team One for jacking Team Two. It really sucks Team Two, but I'm bringing you down to 2.`;
+                    console.log('Team code is literally 1');
+                    nextRoundMessage = `Congratulations Team One for jacking Team Two. It really sucks Team Two, but I'm bringing you down to 2.`;
                     teamTwoCardOrder = 0;
 
                 } else if (teamCode == 2) {
-                    speakOutput = `Congratulations Team Two for jacking Team One. It really sucks Team One, but I'm bringing you down to 2.`;
+                    console.log('Team code is literally 2');
+                    nextRoundMessage = `Congratulations Team Two for jacking Team One. It really sucks Team One, but I'm bringing you down to 2.`;
                     teamOneCardOrder = 0;
 
                 } else {
-                    speakOutput = `I'm sorry, I didn't quite catch which team jacked which team. Please tell me in this order: Attacking team number just Jacked the kings.`
+                    nextRoundMessage = `I'm sorry, I didn't quite catch which team jacked which team. Please tell me in this order: Attacking team number just Jacked the kings.`
                 }
             }
         }
@@ -385,6 +390,8 @@ const TeamIntentHandler = {
                     }
                 }
                 speakOutput = `Thank you for inputting the king. Both teams will be starting at 2.`;
+                teamOneCardOrder = 0;
+                teamTwoCardOrder = 0;
             } else {
                 speakOutput = `Please give the order before telling me the king`;
             }
@@ -404,6 +411,10 @@ const TeamIntentHandler = {
 
         if (playerFour !== false) {
             order.push(playerOne, playerTwo, playerThree, playerFour);
+            globalFirstMemberOne = playerOne;
+            globalSecondMemberOne = playerTwo;
+            globalFirstMemberTwo = playerThree;
+            globalSecondMemberTwo = playerFour;
         }
 
         if (allTeams.length >= 2) {
@@ -450,27 +461,27 @@ const TeamIntentHandler = {
 
         }
 
-        if (nextRoundMessage !== false) {
-            console.log('nextRoundMessage is not false. It is', nextRoundMessage);
-            speakOutput = nextRoundMessage;
-            if (nextRoundBool) {
-                let teamAttributes = {
-                    "firstMemberOne": globalFirstMemberOne,
-                    "firstMemberTwo": globalFirstMemberTwo,
-                    "secondMemberOne": globalSecondMemberOne,
-                    "secondMemberTwo": globalSecondMemberTwo,
-                    "gaveAnOrder": true,
-                    "restarted": false,
-                    "firstTeamScore": teamOneCardOrder,
-                    "secondTeamScore": teamTwoCardOrder,
-                    "daCurrentKing": orderIndex
-                }
-                console.log('daCurrentKing here is', teamAttributes.daCurrentKing);
-
-                attributesManager.setPersistentAttributes(teamAttributes);
-                await attributesManager.savePersistentAttributes();
+        console.log('nextRoundMessage is not false. It is', nextRoundMessage);
+        speakOutput = nextRoundMessage;
+        if (nextRoundBool || jackedUp) {
+            let teamAttributes = {
+                "firstMemberOne": globalFirstMemberOne,
+                "firstMemberTwo": globalFirstMemberTwo,
+                "secondMemberOne": globalSecondMemberOne,
+                "secondMemberTwo": globalSecondMemberTwo,
+                "gaveAnOrder": true,
+                "restarted": false,
+                "firstTeamScore": teamOneCardOrder,
+                "secondTeamScore": teamTwoCardOrder,
+                "daCurrentKing": orderIndex
             }
+            console.log('The order/scores inside teamAttributes is this. firstTeamScore is', teamAttributes.firstTeamScore, ' secondTeamScore is', teamAttributes.secondTeamScore);
+            // console.log('daCurrentKing here is', teamAttributes.daCurrentKing);
+
+            attributesManager.setPersistentAttributes(teamAttributes);
+            await attributesManager.savePersistentAttributes();
         }
+        nextRoundMessage = false;
 
         var repromptText = `Interestingly empty`;
         if (twoTeam !== false && (typeof twoTeam !== 'undefined') && !alreadyHeardInstructions) {
@@ -494,6 +505,15 @@ const TeamIntentHandler = {
             .getResponse();
     }
 };
+
+// const JackedIntentHandler = {
+//     canHandle(handlerInput) {
+//         return handlerInput.requestEnvelope.request.type === 'IntentRequest'
+//             && handlerInput.requestEnvelope.request.intent.name === 'JackedIntent';
+//     }, async handle(handlerInput) {
+
+//     }
+// }
 
 const HelpIntentHandler = {
     canHandle(handlerInput) {
@@ -547,16 +567,18 @@ const StartOverIntentHandler = {
         order = [];
         orderIndex = -1;
         
-        globalFirstMemberOne = false;
-        globalFirstMemberTwo = false;
-        globalSecondMemberOne = false;
-        globalSecondMemberTwo = false;
-        global = false;
-        firstGlobal = false;
+        // globalFirstMemberOne = false;
+        // globalFirstMemberTwo = false;
+        // globalSecondMemberOne = false;
+        // globalSecondMemberTwo = false;
+        // global = false;
+        // firstGlobal = false;
 
         teamOneCardOrder = 0;
         teamTwoCardOrder = 0;
         currKingTeam = -1;
+
+        gameOver = false;
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
@@ -656,6 +678,7 @@ exports.handler = Alexa.SkillBuilders.custom()
         /* Check to see if order matters here or like at the beginning in order of that (27:35) of video */
         LaunchRequestHandler,
         TeamIntentHandler,
+        // JackedIntentHandler,
         HelpIntentHandler,
         StartOverIntentHandler,
         CancelAndStopIntentHandler,
