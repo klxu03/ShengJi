@@ -51,6 +51,8 @@ team two has jacked the kings
 
 Alexa: "Congratulations to team two for winning..."
 
+User: "Restart my match."
+
 ## Categories
 
 Games
