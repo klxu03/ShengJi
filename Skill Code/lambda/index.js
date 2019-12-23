@@ -61,7 +61,7 @@ const LaunchRequestHandler = {
 
         if (!restarted) {
             if (firstMemberOne && firstMemberTwo && secondMemberOne && secondMemberTwo) {
-                console.log('I cannot believe it, everything is fuking true');
+                console.log('I cannot believe it, everything is true');
                 firstGlobal = true;
                 global = true;
                 globalFirstMemberOne = firstMemberOne;
@@ -76,12 +76,12 @@ const LaunchRequestHandler = {
                 orderGiven = true;
             }
 
-            if ((typeof firstTeamsScore !== 'undefined') && (typeof secondTeamsScore !== 'undefined') && (typeof orderOfDaCurrentKing !== 'undefined')) {
+            if (firstMemberOne && firstMemberTwo && secondMemberOne && secondMemberTwo && (typeof firstTeamsScore !== 'undefined') && (typeof secondTeamsScore !== 'undefined') && (typeof orderOfDaCurrentKing !== 'undefined')) {
                 launchBool = true;
                 order = [globalFirstMemberOne, globalSecondMemberOne, globalFirstMemberTwo, globalSecondMemberTwo];
                 orderGiven = true;
-                teamOneCardOrder = firstTeamsScore;
-                teamTwoCardOrder = secondTeamsScore;
+                (firstTeamScore == false) ? (teamOneCardOrder = firstTeamScore) : (teamOneCardOrder = 0);
+                (secondTeamScore == false) ? (teamTwoCardOrder = secondTeamScore) : (teamTwoCardOrder = 0);
                 orderIndex = orderOfDaCurrentKing;
                 if ((orderIndex % 2) == 0) {
                     currKingTeam = 1;
@@ -101,10 +101,7 @@ const LaunchRequestHandler = {
     }, 
     handle(handlerInput) {
         const repromptText = 'Team One has Alexa and Jeff. What about your team?'
-        if (firstGlobal && !global) {
-            welcomeMessage = `Welcome back! We have already saved team one, with ${globalFirstMemberOne} and ${globalFirstMemberTwo} on the team.
-            ${instructions}`;
-        } else if (launchBool) {
+        if (launchBool) {
             order = [globalFirstMemberOne, globalSecondMemberOne, globalFirstMemberTwo, globalSecondMemberTwo];
             orderGiven = true;
             if ((orderIndex % 2) == 0) {
@@ -118,19 +115,8 @@ const LaunchRequestHandler = {
             Team one is playing the ${cardOrder[teamOneCardOrder]} level and team two is playing the ${cardOrder[teamTwoCardOrder]} level.
             Good luck to both teams in your current match.
             `;
-        } else {
             if (typeof gaveAnOrder !== 'undefined') {
                 orderGiven = true;
-            }
-
-            if (!orderGiven) {
-                welcomeMessage = `Welcome back! We already have a full match saved, with the players on team 1 being ${globalFirstMemberOne}, 
-                ${globalFirstMemberTwo}, and the players on team 2 being ${globalSecondMemberOne}, and ${globalSecondMemberTwo}.,
-                ${rotationInstructions} ${instructions}`
-            } else {
-                welcomeMessage = `Welcome back! We already have a full match saved, with the players on team 1 being ${globalFirstMemberOne}, 
-                ${globalFirstMemberTwo}, and the players on team 2 being ${globalSecondMemberOne}, and ${globalSecondMemberTwo}.,
-                ${instructions}`
             }
         }
 
@@ -540,24 +526,24 @@ const StartOverIntentHandler = {
         speakOutput += ` It will take a few minutes to officially process. If you make new teams, the new teams will be saved, but the next
         time you open up the welcome message will act as if there is a saved match.`;
 
-        let teamAttributes = {
-            "firstMemberOne": false,
-            "restarted": true
-        }
+        // let teamAttributes = {
+        //     "firstMemberOne": false,
+        //     "restarted": true
+        // }
 
-        const attributesManager = handlerInput.attributesManager;
+        // const attributesManager = handlerInput.attributesManager;
 
-        attributesManager.setPersistentAttributes(teamAttributes);
-        await attributesManager.savePersistentAttributes();
+        // attributesManager.setPersistentAttributes(teamAttributes);
+        // await attributesManager.savePersistentAttributes();
 
         const sessionAttributes = await attributesManager.getPersistentAttributes() || {};
 
-        const secondMemberOne = sessionAttributes.hasOwnProperty('secondMemberOne') ? sessionAttributes.secondMemberOne : 0;
-        if (!secondMemberOne) {
-            console.log('Definitive, secondMemberOne does not exist, it is', secondMemberOne);
-        } else {
-            console.log('secondMemberOne exists');
-        }
+        // const secondMemberOne = sessionAttributes.hasOwnProperty('secondMemberOne') ? sessionAttributes.secondMemberOne : 0;
+        // if (!secondMemberOne) {
+        //     console.log('Definitive, secondMemberOne does not exist, it is', secondMemberOne);
+        // } else {
+        //     console.log('secondMemberOne exists');
+        // }
 
         //Wish I saw this earlier lol
         attributesManager.deletePersistentAttributes();
