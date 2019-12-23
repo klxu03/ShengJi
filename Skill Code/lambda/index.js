@@ -80,8 +80,8 @@ const LaunchRequestHandler = {
                 launchBool = true;
                 order = [globalFirstMemberOne, globalSecondMemberOne, globalFirstMemberTwo, globalSecondMemberTwo];
                 orderGiven = true;
-                (firstTeamScore == false) ? (teamOneCardOrder = firstTeamScore) : (teamOneCardOrder = 0);
-                (secondTeamScore == false) ? (teamTwoCardOrder = secondTeamScore) : (teamTwoCardOrder = 0);
+                (firstTeamsScore == false) ? (teamOneCardOrder = firstTeamsScore) : (teamOneCardOrder = 0);
+                (secondTeamsScore == false) ? (teamTwoCardOrder = secondTeamsScore) : (teamTwoCardOrder = 0);
                 orderIndex = orderOfDaCurrentKing;
                 if ((orderIndex % 2) == 0) {
                     currKingTeam = 1;
@@ -531,7 +531,7 @@ const StartOverIntentHandler = {
         //     "restarted": true
         // }
 
-        // const attributesManager = handlerInput.attributesManager;
+        const attributesManager = handlerInput.attributesManager;
 
         // attributesManager.setPersistentAttributes(teamAttributes);
         // await attributesManager.savePersistentAttributes();
