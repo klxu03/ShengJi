@@ -270,7 +270,7 @@ const TeamIntentHandler = {
             jackedUp = true;
             let daValue = handlerInput.requestEnvelope.request.intent.slots.Jacked.value;
             console.log('daValue is', daValue);
-            if (daValue == 'Jacked' || daValue == 'jacked' || daValue == 'jack' || daValue == 'Jack') {
+            if (daValue == 'Jacked' || daValue == 'jacked' || daValue == 'jack' || daValue == 'Jack' || daValue == 'jak' || daValue == 'Jak') {
                 console.log('jack has passed the if condition. Team code in here is', teamCode);
                 if (teamCode == 1) {
                     console.log('Team code is literally 1');
